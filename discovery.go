@@ -51,10 +51,16 @@ func newDiscovery(conf sdConfig, logger log.Logger) (*discovery, error) {
 		return nil, err
 	}
 	metadataSvc := ec2metadata.New(session.New())
-	region, err := metadataSvc.Region()
-	if err != nil {
-		level.Warn(logger).Log("msg", "could not get region", "err", err)
-		region = "us-east-1"
+
+	var region string
+	for region == "" {
+		var err error
+		region, err = metadataSvc.Region()
+		if err != nil {
+			level.Error(logger).Log("msg", "could not get region", "err", err)
+			time.Sleep(time.Duration(5) * time.Second)
+			continue
+		}
 	}
 
 	d := &discovery{
@@ -81,6 +87,10 @@ func (d *discovery) Run(ctx context.Context, ch chan<- []*targetgroup.Group) {
 		if err := client.DescribeCacheClustersPagesWithContext(ctx, input, func(out *elasticache.DescribeCacheClustersOutput, lastPage bool) bool {
 			for _, cluster := range out.CacheClusters {
 				for _, node := range cluster.CacheNodes {
+					if node.Endpoint == nil || node.Endpoint.Address == nil || node.Endpoint.Port == nil {
+						continue // instance is not ready
+					}
+
 					labels := model.LabelSet{
 						elasticacheLabelClusterID: model.LabelValue(*cluster.CacheClusterId),
 						elasticacheLabelNodeID:    model.LabelValue(*node.CacheNodeId),
