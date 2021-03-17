@@ -112,6 +112,7 @@ func (d *discovery) Run(ctx context.Context, ch chan<- []*targetgroup.Group) {
 					tags, err := listTagsForInstance(client, d.accountID, d.region, cluster, node)
 					if err != nil {
 						level.Error(d.logger).Log("msg", "could not list tags for elasticache instance", "err", err)
+						continue
 					}
 
 					for _, t := range tags.TagList {
