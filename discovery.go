@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -89,6 +90,8 @@ func getAccountId(ctx context.Context) (string, error) {
 }
 
 func getRegion(ctx context.Context) (string, error) {
+	var region string
+
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(0))
 	if err != nil {
 		return "", err
@@ -97,10 +100,15 @@ func getRegion(ctx context.Context) (string, error) {
 	client := imds.NewFromConfig(cfg)
 	response, err := client.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
-		return "", err
+		region = os.Getenv("AWS_REGION")
+		if region == "" {
+			region = "us-east-1"
+		}
+	} else {
+		region = response.Region
 	}
 
-	return response.Region, nil
+	return region, nil
 }
 
 func (d *discovery) Run(ctx context.Context, ch chan<- []*targetgroup.Group) {
