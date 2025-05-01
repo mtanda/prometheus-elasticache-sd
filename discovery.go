@@ -48,11 +48,6 @@ func newDiscovery(conf sdConfig, logger log.Logger) (*discovery, error) {
 	}
 
 	ctx := context.TODO()
-	accountId, err := getAccountId(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	var region string
 	for region == "" {
 		var err error
@@ -62,6 +57,11 @@ func newDiscovery(conf sdConfig, logger log.Logger) (*discovery, error) {
 			time.Sleep(time.Duration(5) * time.Second)
 			continue
 		}
+	}
+
+	accountId, err := getAccountId(ctx, region)
+	if err != nil {
+		return nil, err
 	}
 
 	d := &discovery{
@@ -74,8 +74,8 @@ func newDiscovery(conf sdConfig, logger log.Logger) (*discovery, error) {
 	return d, nil
 }
 
-func getAccountId(ctx context.Context) (string, error) {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRetryMaxAttempts(0))
+func getAccountId(ctx context.Context, region string) (string, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region), config.WithRetryMaxAttempts(0))
 	if err != nil {
 		return "", err
 	}
@@ -137,7 +137,7 @@ func (d *discovery) Run(ctx context.Context, ch chan<- []*targetgroup.Group) {
 			}
 			for _, cluster := range out.CacheClusters {
 				for _, node := range cluster.CacheNodes {
-					if node.Endpoint.Address == nil {
+					if node.Endpoint == nil || node.Endpoint.Address == nil {
 						continue // instance is not ready
 					}
 
